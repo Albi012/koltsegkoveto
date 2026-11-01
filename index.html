@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>Költségkövető</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1c2430; --muted: #6b7684;
+    --border: #e3e6ea; --accent: #0f766e; --accent-soft: #ccfbf1; --danger: #c2410c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11161c; --card: #1a2129; --text: #e6eaef; --muted: #8b96a3;
+      --border: #2a333d; --accent: #2dd4bf; --accent-soft: #134e4a; --danger: #fb923c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; margin: 8px 0 16px; }
+  h2 { font-size: 1rem; margin: 0 0 12px; color: var(--muted); font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  label input, label select { width: 100%; }
+  label { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); gap: 4px; }
+  label.full { grid-column: 1 / -1; }
+  input, select, button {
+    font: inherit; font-size: 16px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-width: 0; max-width: 100%;
+  }
+  button { cursor: pointer; background: var(--card); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; grid-column: 1 / -1; }
+  @media (prefers-color-scheme: dark) { button.primary { color: #042f2e; } }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .month-nav { justify-content: space-between; }
+  .month-nav strong { font-size: 1.1rem; text-transform: capitalize; }
+  .total { font-size: 2rem; font-weight: 700; margin: 4px 0 12px; }
+  .bar { display: grid; grid-template-columns: 110px 1fr auto; gap: 8px; align-items: center; margin: 6px 0; font-size: .9rem; }
+  .bar .track { background: var(--bg); border-radius: 6px; height: 10px; overflow: hidden; }
+  .bar .fill { background: var(--accent); height: 100%; border-radius: 6px; }
+  .bar .val { font-variant-numeric: tabular-nums; color: var(--muted); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li.item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  li.item:last-child { border-bottom: 0; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .meta { font-size: .8rem; color: var(--muted); }
+  .item .amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .item button { padding: 6px 9px; font-size: .85rem; }
+  .item button.del { color: var(--danger); }
+  .day { font-size: .8rem; color: var(--muted); margin-top: 12px; font-weight: 600; }
+  .empty { color: var(--muted); text-align: center; padding: 20px 0; }
+  .tools button { font-size: .9rem; }
+  .badge { display: inline-block; background: var(--accent-soft); border-radius: 999px; padding: 1px 8px; font-size: .75rem; }
+  .over { color: var(--danger); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>💸 Költségkövető</h1>
+
+  <section class="card">
+    <h2 id="formTitle">Új kiadás</h2>
+    <form id="form">
+      <label>Összeg (Ft)
+        <input id="amount" type="number" inputmode="decimal" min="0" step="any" required placeholder="pl. 4500">
+      </label>
+      <label>Dátum
+        <input id="date" type="date" required>
+      </label>
+      <label>Kategória
+        <select id="category"></select>
+      </label>
+      <label>Megjegyzés
+        <input id="note" type="text" placeholder="pl. Tesco bevásárlás" maxlength="120">
+      </label>
+      <button class="primary" type="submit" id="submitBtn">Hozzáadás</button>
+      <button type="button" id="cancelEdit" hidden style="grid-column:1/-1">Mégse</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="row month-nav">
+      <button id="prev" aria-label="Előző hónap">‹</button>
+      <strong id="monthLabel"></strong>
+      <button id="next" aria-label="Következő hónap">›</button>
+    </div>
+    <div class="total" id="total">0 Ft</div>
+    <div id="budgetInfo" class="meta"></div>
+    <div id="bars"></div>
+  </section>
+
+  <section class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:4px">
+      <h2 style="margin:0">Tételek</h2>
+      <select id="filter" aria-label="Szűrés kategóriára"></select>
+    </div>
+    <ul id="list"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Beállítások és mentés</h2>
+    <div class="row tools">
+      <button id="setBudget">Havi keret beállítása</button>
+      <button id="exportCsv">Export CSV</button>
+      <button id="exportJson">Mentés (JSON)</button>
+      <button id="importJson">Visszaállítás</button>
+      <input id="importFile" type="file" accept="application/json" hidden>
+    </div>
+    <p class="meta" style="font-size:.8rem;color:var(--muted);margin-bottom:0">
+      Az adatok csak ezen az eszközön, a böngészőben tárolódnak. Készíts időnként mentést!
+    </p>
+  </section>
+</main>
+
+<script>
+const CATEGORIES = [
+  ['Élelmiszer', '🛒'], ['Étterem', '🍽️'], ['Lakhatás', '🏠'], ['Rezsi', '💡'],
+  ['Közlekedés', '🚗'], ['Egészség', '💊'], ['Szórakozás', '🎬'], ['Ruházat', '👕'],
+  ['Előfizetések', '📱'], ['Ajándék', '🎁'], ['Egyéb', '📦'],
+];
+const ICON = Object.fromEntries(CATEGORIES);
+const KEY = 'koltsegkoveto.v1';
+
+const $ = (id) => document.getElementById(id);
+const fmt = new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 });
+const monthFmt = new Intl.DateTimeFormat('hu-HU', { year: 'numeric', month: 'long' });
+const dayFmt = new Intl.DateTimeFormat('hu-HU', { month: 'long', day: 'numeric', weekday: 'long' });
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || { expenses: [], budget: 0 }; }
+  catch { return { expenses: [], budget: 0 }; }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch { alert('Nem sikerült menteni a böngészőbe.'); }
+}
+
+let state = load();
+let editingId = null;
+const today = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD helyi idő szerint
+let current = today().slice(0, 7); // YYYY-MM
+
+// Kategória listák feltöltése
+for (const [name, icon] of CATEGORIES) $('category').add(new Option(`${icon} ${name}`, name));
+$('filter').add(new Option('Mind', ''));
+for (const [name, icon] of CATEGORIES) $('filter').add(new Option(`${icon} ${name}`, name));
+$('date').value = today();
+
+function shiftMonth(delta) {
+  const [y, m] = current.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  current = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  render();
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function render() {
+  const [y, m] = current.split('-').map(Number);
+  $('monthLabel').textContent = monthFmt.format(new Date(y, m - 1, 1));
+
+  const month = state.expenses.filter((e) => e.date.startsWith(current));
+  const total = month.reduce((s, e) => s + e.amount, 0);
+  $('total').textContent = fmt.format(total);
+
+  if (state.budget > 0) {
+    const left = state.budget - total;
+    $('budgetInfo').innerHTML = left >= 0
+      ? `Keret: ${fmt.format(state.budget)} · <span class="badge">Maradt: ${fmt.format(left)}</span>`
+      : `Keret: ${fmt.format(state.budget)} · <span class="over">Túllépve: ${fmt.format(-left)}</span>`;
+  } else {
+    $('budgetInfo').textContent = '';
+  }
+
+  // Kategória bontás
+  const byCat = {};
+  for (const e of month) byCat[e.category] = (byCat[e.category] || 0) + e.amount;
+  const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const max = sorted.length ? sorted[0][1] : 1;
+  $('bars').innerHTML = sorted.map(([cat, sum]) => `
+    <div class="bar">
+      <span>${ICON[cat] || '📦'} ${escapeHtml(cat)}</span>
+      <div class="track"><div class="fill" style="width:${(sum / max) * 100}%"></div></div>
+      <span class="val">${fmt.format(sum)} · ${Math.round((sum / total) * 100)}%</span>
+    </div>`).join('');
+
+  // Lista
+  const filter = $('filter').value;
+  const items = month
+    .filter((e) => !filter || e.category === filter)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.created - a.created);
+
+  if (!items.length) {
+    $('list').innerHTML = `<li class="empty">Ebben a hónapban még nincs ${filter ? 'ilyen ' : ''}kiadás.</li>`;
+    return;
+  }
+  let html = '', lastDay = '';
+  for (const e of items) {
+    if (e.date !== lastDay) {
+      lastDay = e.date;
+      const [yy, mm, dd] = e.date.split('-').map(Number);
+      html += `<li class="day">${dayFmt.format(new Date(yy, mm - 1, dd))}</li>`;
+    }
+    html += `
+      <li class="item">
+        <span style="font-size:1.4rem">${ICON[e.category] || '📦'}</span>
+        <div class="info">
+          <div class="note">${escapeHtml(e.note || e.category)}</div>
+          <div class="meta">${escapeHtml(e.category)}</div>
+        </div>
+        <span class="amt">${fmt.format(e.amount)}</span>
+        <button data-edit="${e.id}" aria-label="Szerkesztés">✏️</button>
+        <button class="del" data-del="${e.id}" aria-label="Törlés">✕</button>
+      </li>`;
+  }
+  $('list').innerHTML = html;
+}
+
+function resetForm() {
+  editingId = null;
+  $('form').reset();
+  $('date').value = today();
+  $('formTitle').textContent = 'Új kiadás';
+  $('submitBtn').textContent = 'Hozzáadás';
+  $('cancelEdit').hidden = true;
+}
+
+$('form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const amount = Math.round(parseFloat($('amount').value) * 100) / 100;
+  if (!(amount > 0)) return;
+  const data = {
+    amount, date: $('date').value, category: $('category').value, note: $('note').value.trim(),
+  };
+  if (editingId) {
+    Object.assign(state.expenses.find((e) => e.id === editingId), data);
+  } else {
+    state.expenses.push({ id: crypto.randomUUID?.() || String(Date.now() + Math.random()), created: Date.now(), ...data });
+  }
+  save();
+  current = data.date.slice(0, 7);
+  resetForm();
+  render();
+  $('amount').focus();
+});
+
+$('cancelEdit').addEventListener('click', resetForm);
+
+$('list').addEventListener('click', (ev) => {
+  const del = ev.target.closest('[data-del]');
+  const edit = ev.target.closest('[data-edit]');
+  if (del && confirm('Biztosan törlöd ezt a tételt?')) {
+    state.expenses = state.expenses.filter((e) => e.id !== del.dataset.del);
+    if (editingId === del.dataset.del) resetForm();
+    save(); render();
+  } else if (edit) {
+    const e = state.expenses.find((x) => x.id === edit.dataset.edit);
+    editingId = e.id;
+    $('amount').value = e.amount;
+    $('date').value = e.date;
+    $('category').value = e.category;
+    $('note').value = e.note;
+    $('formTitle').textContent = 'Kiadás szerkesztése';
+    $('submitBtn').textContent = 'Mentés';
+    $('cancelEdit').hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+});
+
+$('prev').addEventListener('click', () => shiftMonth(-1));
+$('next').addEventListener('click', () => shiftMonth(1));
+$('filter').addEventListener('change', render);
+
+$('setBudget').addEventListener('click', () => {
+  const v = prompt('Havi költségkeret (Ft), 0 = nincs keret:', state.budget || '');
+  if (v === null) return;
+  const n = parseFloat(v.replace(/\s/g, '').replace(',', '.'));
+  state.budget = n > 0 ? n : 0;
+  save(); render();
+});
+
+function download(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+$('exportCsv').addEventListener('click', () => {
+  const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
+  const rows = [['Dátum', 'Kategória', 'Összeg', 'Megjegyzés']]
+    .concat([...state.expenses].sort((a, b) => a.date.localeCompare(b.date))
+      .map((e) => [e.date, e.category, e.amount, e.note]));
+  download('kiadasok.csv', '﻿' + rows.map((r) => r.map(q).join(';')).join('\n'), 'text/csv');
+});
+
+$('exportJson').addEventListener('click', () => {
+  download(`koltsegkoveto-mentes-${today()}.json`, JSON.stringify(state, null, 2), 'application/json');
+});
+
+$('importJson').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', async () => {
+  const file = $('importFile').files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.expenses)) throw new Error();
+    if (!confirm(`${data.expenses.length} tétel visszaállítása? A jelenlegi adatok felülíródnak.`)) return;
+    state = { expenses: data.expenses, budget: Number(data.budget) || 0 };
+    save(); render();
+  } catch {
+    alert('Hibás mentésfájl.');
+  } finally {
+    $('importFile').value = '';
+  }
+});
+
+render();
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
