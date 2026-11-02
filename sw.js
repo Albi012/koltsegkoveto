@@ -1,6 +1,6 @@
 // Egyszerű offline gyorsítótár az app saját fájljaihoz: előbb hálózat, ha nincs, akkor a cache.
 // Az adatbázis (Supabase) és a CDN kérései nem mennek át rajta.
-const CACHE = 'koltsegkoveto-v2';
+const CACHE = 'koltsegkoveto-v3';
 const FILES = ['./', 'index.html', 'app.js', 'store.js', 'config.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {

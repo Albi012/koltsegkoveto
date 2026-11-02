@@ -6,7 +6,7 @@ const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+
 const CATEGORIES = [
   ['Élelmiszer', '🛒'], ['Étterem', '🍽️'], ['Lakhatás', '🏠'], ['Rezsi', '💡'],
   ['Közlekedés', '🚗'], ['Egészség', '💊'], ['Szórakozás', '🎬'], ['Ruházat', '👕'],
-  ['Előfizetések', '📱'], ['Ajándék', '🎁'], ['Egyéb', '📦'],
+  ['Előfizetések', '📱'], ['Ajándék', '🎁'], ['Iqos', '🚬'], ['Egyéb', '📦'],
 ];
 const ICON = Object.fromEntries(CATEGORIES);
 
